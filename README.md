@@ -62,18 +62,35 @@ Run the script to start monitoring failed login attempts:
 ```bash
 python intruder_system.py
 ```
-🔮 Future Improvements
-✅ Implement facial recognition to differentiate between the owner and an intruder.
-🚀 Optimize image capturing for better quality and speed.
-🔄 Store intruder logs for future analysis.
-🌐 Web-based dashboard for remote monitoring.
-🤝 Contributing
-Want to contribute? Follow these steps:
-1️⃣ Fork the repository 🍴
-2️⃣ Create a new branch (feature-branch) 🌿
-3️⃣ Commit changes (git commit -m "Added new feature") ✅
-4️⃣ Push to the branch (git push origin feature-branch) 🚀
+## 🔮 Future Improvements  
+- ✅ Implement facial recognition to differentiate between the owner and an intruder.  
+- 🚀 Optimize image capturing for better quality and speed.  
+- 🔄 Store intruder logs for future analysis.  
+- 🌐 Web-based dashboard for remote monitoring.  
+
+---
+
+## 🤝 Contributing  
+Want to contribute? Follow these steps:  
+
+1️⃣ **Fork the repository** 🍴  
+2️⃣ **Create a new branch** (`feature-branch`) 🌿  
+```bash
+ git checkout -b feature-branch
+```
+3️⃣ Make your changes and commit them ✅
+
+```bash
+git commit -m "Added new feature"
+```
+4️⃣ Push to the branch 🚀
+
+```bash
+git push origin feature-branch
+```
 5️⃣ Open a pull request 🔃
+
+Let me know if you need any modifications! 🚀
 
 ⚠️ Disclaimer
 This project is for educational purposes only.
