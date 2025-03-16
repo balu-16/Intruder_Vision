@@ -92,9 +92,11 @@ git push origin feature-branch
 
 Let me know if you need any modifications! 🚀
 
-⚠️ Disclaimer
-This project is for educational purposes only.
-Ensure you have legal permissions before monitoring login attempts.
-📌 Stay secure! 🔒
+## ⚠️ Disclaimer  
 
-This should cover everything you need! Let me know if you need modifications. 🚀
+This project is intended **for educational and security purposes only**. 🛑 Unauthorized use, monitoring, or surveillance of individuals **without consent** may be illegal in certain jurisdictions.  
+
+By using this software, you agree that you are responsible for ensuring compliance with all applicable laws and regulations. 🚨 The authors of this project **are not liable** for any misuse or legal consequences resulting from its deployment.  
+
+Use it ethically and responsibly. ✅  
+
