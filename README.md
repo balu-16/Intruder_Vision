@@ -24,7 +24,11 @@ Before running this project, ensure you have the following installed:
 
 ## 📂 Code Structure  
 
-📂 Intruder-Detection-System │-- 📜 intruder_system.py # Main script to monitor login attempts │-- 📜 README.md # Documentation │-- 📜 requirements.txt # Required dependencies │-- 📂 assets # Stores captured images
+📂 Intruder-Detection-System 
+- 📜 intruder_system.py # Main script to monitor login attempts 
+- 📜 README.md # Documentation 
+- 📜 requirements.txt # Required dependencies 
+- 📂 assets # Stores captured images
 
 yaml
 Copy
