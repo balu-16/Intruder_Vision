@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IntruderVision - Security Monitoring System</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <header>
+            <div class="logo">
+                <i class="fas fa-shield-alt"></i>
+                <h1>IntruderVision</h1>
+            </div>
+            <div class="status-indicator">
+                <span id="status-badge" class="{{ 'active' if monitoring else 'inactive' }}">
+                    <i class="fas fa-shield-alt"></i>
+                    {{ 'MONITORING ACTIVE' if monitoring else 'MONITORING INACTIVE' }}
+                </span>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <main>
+            <div class="content-section">
+                <div class="video-container">
+                    <h2><i class="fas fa-camera"></i> Live Camera Feed</h2>
+                    <div class="video-feed">
+                        <img src="{{ url_for('video_feed') }}" alt="Live Camera Feed">
+                    </div>
+                    <div class="camera-controls">
+                        <button id="toggle-camera" class="btn btn-blue">
+                            <i class="fas fa-video"></i> Turn On Camera
+                        </button>
+                    </div>
+                </div>
+
+                <div class="control-panel">
+                    <h2><i class="fas fa-sliders"></i> Control Panel</h2>
+                    <div class="controls">
+                        <button id="start-monitoring" class="btn btn-green" {{ 'disabled' if monitoring }}>
+                            <i class="fas fa-play"></i> Start Monitoring
+                        </button>
+                        <button id="stop-monitoring" class="btn btn-red" {{ 'disabled' if not monitoring }}>
+                            <i class="fas fa-stop"></i> Stop Monitoring
+                        </button>
+                        <button id="test-capture" class="btn btn-blue">
+                            <i class="fas fa-camera"></i> Test Camera
+                        </button>
+                    </div>
+
+                    <div class="test-controls">
+                        <h3><i class="fas fa-flask"></i> Testing Tools</h3>
+                        <div class="controls">
+                            <button id="wrong-password" class="btn btn-red">
+                                <i class="fas fa-key"></i> Simulate Wrong Password
+                            </button>
+                        </div>
+                        <p class="test-note">
+                            <i class="fas fa-info-circle"></i> 
+                            The "Simulate Wrong Password" button will trigger the same actions as a real wrong password event.
+                        </p>
+                    </div>
+
+                    <div class="system-info">
+                        <h3><i class="fas fa-info-circle"></i> System Information</h3>
+                        <div class="info-cards">
+                            <div class="info-card">
+                                <i class="fas fa-envelope"></i>
+                                <div>
+                                    <h4>Email Alerts</h4>
+                                    <p>Configured to: <span id="email-config">{{ EMAIL_RECEIVER }}</span></p>
+                                </div>
+                            </div>
+                            <div class="info-card">
+                                <i class="fas fa-mobile-alt"></i>
+                                <div>
+                                    <h4>SMS Alerts</h4>
+                                    <p>Configured to: <span id="sms-config">{{ OWNER_PHONE }}</span></p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Alerts History -->
+            <div class="alerts-section">
+                <h2><i class="fas fa-bell"></i> Alerts History</h2>
+                <div id="alerts-container">
+                    {% if alerts %}
+                        {% for alert in alerts %}
+                            <div class="alert-card {{ 'test-alert' if alert.get('is_test', False) else '' }} {{ 'simulated-alert' if alert.get('is_simulated', False) else '' }}">
+                                <div class="alert-info">
+                                    <h3>{{ alert.get('message', 'Test Capture' if alert.get('is_test', False) else 'Intruder Detected!') }}</h3>
+                                    <p><i class="fas fa-clock"></i> {{ alert.timestamp }}</p>
+                                    <p>
+                                        <i class="fas fa-envelope"></i> Email: 
+                                        <span class="{{ 'success' if alert.email_sent else 'not-sent' }}">
+                                            {{ 'Sent' if alert.email_sent else 'Not Sent' }}
+                                        </span>
+                                    </p>
+                                    <p>
+                                        <i class="fas fa-sms"></i> SMS: 
+                                        <span class="{{ 'success' if alert.sms_sid else 'not-sent' }}">
+                                            {{ 'Sent' if alert.sms_sid else 'Not Sent' }}
+                                        </span>
+                                    </p>
+                                </div>
+                                <div class="alert-image">
+                                    <img src="{{ url_for('static', filename=alert.image_path.replace('static/', '')) }}" alt="Intruder Image">
+                                </div>
+                            </div>
+                        {% endfor %}
+                    {% else %}
+                        <div class="no-alerts">
+                            <i class="fas fa-check-circle"></i>
+                            <p>No alerts detected yet. Your system is secure.</p>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </main>
+
+        <!-- Footer -->
+        <footer>
+            <p>&copy; 2023 IntruderVision Security System</p>
+            <div class="footer-links">
+                <a href="#"><i class="fas fa-user-shield"></i> Privacy Policy</a>
+                <a href="#"><i class="fas fa-question-circle"></i> Help & Support</a>
+            </div>
+        </footer>
+    </div>
+
+    <!-- Notification Popup -->
+    <div id="notification" class="notification">
+        <i class="fas fa-info-circle"></i>
+        <span id="notification-message"></span>
+        <button id="notification-close"><i class="fas fa-times"></i></button>
+    </div>
+
+    <!-- JavaScript -->
+    <script src="{{ url_for('static', filename='js/script.js') }}"></script>
+</body>
+</html> 
