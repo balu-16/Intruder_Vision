@@ -20,7 +20,7 @@ OWNER_PHONE = "+0987654321"   # Your phone number to receive SMS
 def capture_intruder_photo():
     cam = cv2.VideoCapture(0)
 
-    # # Set higher resolution (if supported)
+    # Set higher resolution (if supported)
     # cam.set(cv2.CAP_PROP_FRAME_WIDTH, 1280)
     # cam.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
 
