@@ -25,11 +25,11 @@ except ImportError:
     class config:
         EMAIL_SENDER = "gbalarakesh16@gmail.com"
         EMAIL_PASSWORD = "kihevautgfklafej"
-        EMAIL_RECEIVER = "example@gmail.com"
-        TWILIO_SID = "your_twilio_sid"
-        TWILIO_AUTH_TOKEN = "your_twilio_auth_token"
-        TWILIO_PHONE = "+1234567890"
-        OWNER_PHONE = "+1234567890"
+        EMAIL_RECEIVER = "balarakeshg16@gmail.com"
+        TWILIO_SID = "ACde81e5bf3e8f22e836d9b82f06edc968"
+        TWILIO_AUTH_TOKEN = "404851dc82473a14ff6a11a741bb3325"
+        TWILIO_PHONE = "+15392656523"
+        OWNER_PHONE = "+918184930950"
         ENABLE_WMI_MONITORING = False
         ENABLE_EMAIL_ALERTS = False
         ENABLE_SMS_ALERTS = False
