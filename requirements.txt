@@ -2,3 +2,5 @@ Flask==3.0.3
 gunicorn==21.2.0
 opencv-python-headless==4.11.0.86
 numpy==1.24.4
+twilio==9.5.0
+wmi==1.5.1
