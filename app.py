@@ -23,8 +23,8 @@ except ImportError:
     logger.error("Failed to import configuration. Using default values.")
 
     class config:
-        EMAIL_SENDER = "example@gmail.com"
-        EMAIL_PASSWORD = "password"
+        EMAIL_SENDER = "gbalarakesh16@gmail.com"
+        EMAIL_PASSWORD = "kihevautgfklafej"
         EMAIL_RECEIVER = "example@gmail.com"
         TWILIO_SID = "your_twilio_sid"
         TWILIO_AUTH_TOKEN = "your_twilio_auth_token"
