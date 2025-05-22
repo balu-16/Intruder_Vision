@@ -98,7 +98,12 @@ Let me know if you need any modifications! 🚀
 
 ## ⚠️ Disclaimer  
 
-This project is intended **for educational and security purposes only**. 🛑 Unauthorized use, monitoring, or surveillance of individuals **without consent** may be illegal in certain jurisdictions.  
+This project is intended **for educational and security purposes only**. 🛑 Unauthorized use, monitoring, or surveillance of individuals **without consent** may be illegal in certain jurisdictions. 
+
+## License
+This project is licensed as **proprietary and confidential**.  
+**You may not reuse, modify, or redistribute any part of this code.**
+
 
 By using this software, you agree that you are responsible for ensuring compliance with all applicable laws and regulations. 🚨 The authors of this project **are not liable** for any misuse or legal consequences resulting from its deployment.  
 
