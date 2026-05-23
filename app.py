@@ -1,4 +1,5 @@
 import os
+import sys
 import cv2
 import smtplib
 import time
@@ -10,6 +11,29 @@ from email.message import EmailMessage
 from flask import Flask, render_template, jsonify, Response, request
 from datetime import datetime
 import numpy as np
+
+# --- Named Constants ---
+CAMERA_INIT_DELAY = 1.0          # seconds to wait after camera init
+ALERT_COOLDOWN_SECONDS = 5       # prevent rapid-fire alerts
+STREAM_FRAME_INTERVAL = 0.033    # ~30 fps
+FRAME_DELAY_SECONDS = 0.1        # delay between MJPEG frames
+MONITOR_LOOP_DELAY = 0.5         # polling interval in monitor loop
+ERROR_RECOVERY_DELAY = 1.0       # pause after monitoring loop error
+GENERATE_ERROR_DELAY = 0.5       # pause after generate_frames error
+PLACEHOLDER_WIDTH = 400
+PLACEHOLDER_HEIGHT = 300
+MAX_ALERTS_HISTORY = 100          # max alerts kept in memory
+TIMESTAMP_POSITION = (10, 30)
+TIMESTAMP_FONT_SCALE = 0.8
+TIMESTAMP_COLOR = (0, 255, 153)
+STATUS_FONT_SCALE = 0.8
+STATUS_ACTIVE_COLOR = (0, 255, 153)
+STATUS_INACTIVE_COLOR = (255, 59, 48)
+PLACEHOLDER_TEXT_POSITION = (50, 150)
+PLACEHOLDER_FONT_SCALE = 0.8
+PLACEHOLDER_TEXT_COLOR = (255, 255, 255)
+TEXT_THICKNESS = 2
+IS_WINDOWS = sys.platform == "win32"
 
 # Set up logging
 logging.basicConfig(level=logging.INFO,
@@ -43,14 +67,18 @@ wmi_available = False
 twilio_available = False
 
 if config.ENABLE_WMI_MONITORING:
-    try:
-        import wmi
-        wmi_available = True
-        logger.info("WMI module imported successfully")
-    except ImportError:
-        logger.error(
-            "Failed to import WMI module. WMI monitoring will be disabled.")
+    if not IS_WINDOWS:
+        logger.info("WMI monitoring skipped: not running on Windows")
         config.ENABLE_WMI_MONITORING = False
+    else:
+        try:
+            import wmi
+            wmi_available = True
+            logger.info("WMI module imported successfully")
+        except ImportError:
+            logger.error(
+                "Failed to import WMI module. WMI monitoring will be disabled.")
+            config.ENABLE_WMI_MONITORING = False
 
 if config.ENABLE_SMS_ALERTS:
     try:
@@ -68,7 +96,7 @@ app = Flask(__name__)
 _state_lock = threading.Lock()
 monitoring_active = False
 monitoring_thread = None
-alerts_history = deque(maxlen=100)
+alerts_history = deque(maxlen=MAX_ALERTS_HISTORY)
 camera = None
 stream_active = False
 stream_thread = None
@@ -102,7 +130,7 @@ def capture_photo():
                 needs_init = True
 
         if needs_init:
-            time.sleep(1)
+            time.sleep(CAMERA_INIT_DELAY)
 
         with _state_lock:
             local_cam = camera
@@ -287,18 +315,18 @@ def monitor_windows_logins():
                         with _state_lock:
                             alerts_history.appendleft(alert_record)
                         logger.info("Alert recorded in history")
-                        time.sleep(5)  # Prevent rapid-fire alerts
+                        time.sleep(ALERT_COOLDOWN_SECONDS)  # Prevent rapid-fire alerts
 
                 if not monitoring_active:
                     break
 
-                time.sleep(0.5)  # Prevent high CPU usage
+                time.sleep(MONITOR_LOOP_DELAY)  # Prevent high CPU usage
 
             except Exception as loop_error:
                 logger.error(f"Error in monitoring loop: {str(loop_error)}")
                 if not monitoring_active:
                     break
-                time.sleep(1)
+                time.sleep(ERROR_RECOVERY_DELAY)
 
     except Exception as e:
         logger.error(f"Error in monitoring thread: {str(e)}")
@@ -330,7 +358,7 @@ def capture_frames_for_streaming():
             if ret:
                 with _state_lock:
                     latest_frame = frame
-            time.sleep(0.033)  # ~30 fps
+            time.sleep(STREAM_FRAME_INTERVAL)  # ~30 fps
 
     except Exception as e:
         logger.error(f"Error in streaming thread: {str(e)}")
@@ -358,16 +386,15 @@ def generate_frames():
 
             if local_active and local_frame is not None:
                 timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                cv2.putText(local_frame, timestamp, (10, 30),
-                            cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 255, 153), 2)
+                cv2.putText(local_frame, timestamp, TIMESTAMP_POSITION,
+                            cv2.FONT_HERSHEY_SIMPLEX, TIMESTAMP_FONT_SCALE, TIMESTAMP_COLOR, TEXT_THICKNESS)
 
                 with _state_lock:
                     mon_active = monitoring_active
                 status_text = "MONITORING ACTIVE" if mon_active else "MONITORING INACTIVE"
-                status_color = (
-                    0, 255, 153) if mon_active else (255, 59, 48)
+                status_color = STATUS_ACTIVE_COLOR if mon_active else STATUS_INACTIVE_COLOR
                 cv2.putText(local_frame, status_text, (10, local_frame.shape[0] - 10),
-                            cv2.FONT_HERSHEY_SIMPLEX, 0.8, status_color, 2)
+                            cv2.FONT_HERSHEY_SIMPLEX, STATUS_FONT_SCALE, status_color, TEXT_THICKNESS)
 
                 _, buffer = cv2.imencode('.jpg', local_frame)
                 frame_bytes = buffer.tobytes()
@@ -379,19 +406,19 @@ def generate_frames():
 
             yield (b'--frame\r\n'
                    b'Content-Type: image/jpeg\r\n\r\n' + frame_bytes + b'\r\n')
-            time.sleep(0.1)
+            time.sleep(FRAME_DELAY_SECONDS)
 
         except Exception as e:
             logger.error(f"Error in generate_frames: {str(e)}")
-            time.sleep(0.5)
+            time.sleep(GENERATE_ERROR_DELAY)
 
 # Create a placeholder image when camera is not active
 
 
 def create_placeholder_image(message="No Camera Feed"):
-    img = np.zeros((300, 400, 3), dtype=np.uint8)
-    cv2.putText(img, message, (50, 150),
-                cv2.FONT_HERSHEY_SIMPLEX, 0.8, (255, 255, 255), 2)
+    img = np.zeros((PLACEHOLDER_HEIGHT, PLACEHOLDER_WIDTH, 3), dtype=np.uint8)
+    cv2.putText(img, message, PLACEHOLDER_TEXT_POSITION,
+                cv2.FONT_HERSHEY_SIMPLEX, PLACEHOLDER_FONT_SCALE, PLACEHOLDER_TEXT_COLOR, TEXT_THICKNESS)
     return img
 
 # Routes
@@ -411,7 +438,7 @@ def index():
                                OWNER_PHONE=config.OWNER_PHONE)
     except Exception as e:
         logger.error(f"Error rendering index: {str(e)}")
-        return str(e), 500
+        return jsonify({"status": "error", "message": str(e)}), 500
 
 
 @app.route('/video_feed')
@@ -524,21 +551,25 @@ def wrong_password_trigger():
 
 @app.route('/system_status')
 def system_status():
-    logger.debug("System status requested")
-    with _state_lock:
-        mon_active = monitoring_active
-        str_active = stream_active
-        alert_count = len(alerts_history)
-    return jsonify({
-        "monitoring_active": mon_active,
-        "stream_active": str_active,
-        "wmi_available": wmi_available,
-        "email_alerts_enabled": config.ENABLE_EMAIL_ALERTS,
-        "sms_alerts_enabled": config.ENABLE_SMS_ALERTS and twilio_available,
-        "email_configured": bool(config.EMAIL_SENDER and config.EMAIL_PASSWORD and config.EMAIL_RECEIVER),
-        "sms_configured": bool(config.TWILIO_SID and config.TWILIO_AUTH_TOKEN and config.TWILIO_PHONE and config.OWNER_PHONE),
-        "alert_count": alert_count
-    })
+    try:
+        logger.debug("System status requested")
+        with _state_lock:
+            mon_active = monitoring_active
+            str_active = stream_active
+            alert_count = len(alerts_history)
+        return jsonify({
+            "monitoring_active": mon_active,
+            "stream_active": str_active,
+            "wmi_available": wmi_available,
+            "email_alerts_enabled": config.ENABLE_EMAIL_ALERTS,
+            "sms_alerts_enabled": config.ENABLE_SMS_ALERTS and twilio_available,
+            "email_configured": bool(config.EMAIL_SENDER and config.EMAIL_PASSWORD and config.EMAIL_RECEIVER),
+            "sms_configured": bool(config.TWILIO_SID and config.TWILIO_AUTH_TOKEN and config.TWILIO_PHONE and config.OWNER_PHONE),
+            "alert_count": alert_count
+        })
+    except Exception as e:
+        logger.error(f"Error getting system status: {str(e)}")
+        return jsonify({"status": "error", "message": str(e)}), 500
 
 # Cleanup function to ensure resources are released
 
