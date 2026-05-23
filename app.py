@@ -454,7 +454,7 @@ def get_alerts():
     with _state_lock:
         alerts_copy = list(alerts_history)
     logger.debug(f"Alerts requested, returning {len(alerts_copy)} items")
-    return jsonify(alerts_copy)
+    return jsonify({"status": "success", "message": "Alerts retrieved", "alerts": alerts_copy})
 
 
 @app.route('/test_capture', methods=['POST'])
@@ -477,7 +477,7 @@ def test_capture():
         with _state_lock:
             alerts_history.appendleft(alert_record)
         logger.info(f"Test capture successful: {image_path}")
-        return jsonify({"status": "success", "image_path": image_path})
+        return jsonify({"status": "success", "message": "Test capture successful", "image_path": image_path})
     else:
         logger.error("Test capture failed")
         return jsonify({"status": "error", "message": "Failed to capture image"})
@@ -487,7 +487,13 @@ def test_capture():
 def toggle_stream():
     global stream_active, stream_thread, camera
 
-    enable = request.get_json().get('enable', False)
+    data = request.get_json(silent=True)
+    if data is None:
+        return jsonify({"status": "error", "message": "Request body must be valid JSON with an 'enable' boolean field"}), 400
+    enable = data.get('enable')
+    if not isinstance(enable, bool):
+        return jsonify({"status": "error", "message": "'enable' field must be a boolean"}), 400
+
     with _state_lock:
         current_active = stream_active
 
