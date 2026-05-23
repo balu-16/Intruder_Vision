@@ -5,6 +5,7 @@ import time
 import logging
 import threading
 import random
+from collections import deque
 from email.message import EmailMessage
 from flask import Flask, render_template, jsonify, Response, request
 from datetime import datetime
@@ -64,9 +65,10 @@ if config.ENABLE_SMS_ALERTS:
 app = Flask(__name__)
 
 # Global variables
+_state_lock = threading.Lock()
 monitoring_active = False
 monitoring_thread = None
-alerts_history = []
+alerts_history = deque(maxlen=100)
 camera = None
 stream_active = False
 stream_thread = None
@@ -78,34 +80,56 @@ latest_frame = None
 def capture_photo():
     global camera, latest_frame
     try:
-        # Use latest frame if available and streaming is active
-        if latest_frame is not None and stream_active:
+        with _state_lock:
+            # Use latest frame if available and streaming is active
+            if latest_frame is not None and stream_active:
+                frame_copy = latest_frame.copy()
+            else:
+                frame_copy = None
+
+        if frame_copy is not None:
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
             img_path = f"static/images/capture_{timestamp}.jpg"
             os.makedirs(os.path.dirname(img_path), exist_ok=True)
-            cv2.imwrite(img_path, latest_frame)
+            cv2.imwrite(img_path, frame_copy)
             return img_path
 
         # Initialize camera if needed
-        if camera is None:
-            camera = cv2.VideoCapture(0)
+        needs_init = False
+        with _state_lock:
+            if camera is None:
+                camera = cv2.VideoCapture(0)
+                needs_init = True
+
+        if needs_init:
             time.sleep(1)
 
-        ret, frame = camera.read()
+        with _state_lock:
+            local_cam = camera
+
+        if local_cam is None:
+            return None
+
+        ret, frame = local_cam.read()
         if ret:
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
             img_path = f"static/images/capture_{timestamp}.jpg"
             os.makedirs(os.path.dirname(img_path), exist_ok=True)
             cv2.imwrite(img_path, frame)
 
-            if not stream_active:
-                camera.release()
-                camera = None
+            with _state_lock:
+                if not stream_active and camera is not None:
+                    camera.release()
+                    camera = None
 
             return img_path
         return None
     except Exception as e:
         logger.error(f"Error capturing photo: {str(e)}")
+        with _state_lock:
+            if not stream_active and camera is not None:
+                camera.release()
+                camera = None
         return None
 
 # Function to send alert email
@@ -186,7 +210,8 @@ def simulate_wrong_password():
                 "sms_sid": sms_sid,
                 "message": "Wrong password detected!"
             }
-            alerts_history.insert(0, alert_record)  # Add at the beginning
+            with _state_lock:
+                alerts_history.appendleft(alert_record)
             logger.info("Wrong password alert recorded in history")
             return True
         else:
@@ -259,7 +284,8 @@ def monitor_windows_logins():
                             "sms_sid": sms_sid,
                             "message": "Failed login detected! Windows security event triggered."
                         }
-                        alerts_history.insert(0, alert_record)
+                        with _state_lock:
+                            alerts_history.appendleft(alert_record)
                         logger.info("Alert recorded in history")
                         time.sleep(5)  # Prevent rapid-fire alerts
 
@@ -288,42 +314,62 @@ def capture_frames_for_streaming():
     global camera, latest_frame, stream_active
 
     try:
-        if camera is None:
-            camera = cv2.VideoCapture(0)
+        with _state_lock:
+            if camera is None:
+                camera = cv2.VideoCapture(0)
 
-        while stream_active:
-            ret, frame = camera.read()
+        while True:
+            with _state_lock:
+                if not stream_active:
+                    break
+                local_cam = camera
+
+            if local_cam is None:
+                break
+            ret, frame = local_cam.read()
             if ret:
-                latest_frame = frame
+                with _state_lock:
+                    latest_frame = frame
             time.sleep(0.033)  # ~30 fps
 
     except Exception as e:
         logger.error(f"Error in streaming thread: {str(e)}")
     finally:
-        if camera is not None:
-            camera.release()
-            camera = None
+        with _state_lock:
+            if camera is not None:
+                camera.release()
+                camera = None
             latest_frame = None
+            stream_active = False
 
 # Function for continuous video stream
 
 
 def generate_frames():
     while True:
+        with _state_lock:
+            if not stream_active and latest_frame is None:
+                # Stream is off and no frame to serve — yield placeholder then exit
+                pass
         try:
-            if stream_active and latest_frame is not None:
-                frame = latest_frame.copy()
+            with _state_lock:
+                local_active = stream_active
+                local_frame = latest_frame.copy() if latest_frame is not None else None
+
+            if local_active and local_frame is not None:
                 timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                cv2.putText(frame, timestamp, (10, 30),
+                cv2.putText(local_frame, timestamp, (10, 30),
                             cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 255, 153), 2)
 
-                status_text = "MONITORING ACTIVE" if monitoring_active else "MONITORING INACTIVE"
+                with _state_lock:
+                    mon_active = monitoring_active
+                status_text = "MONITORING ACTIVE" if mon_active else "MONITORING INACTIVE"
                 status_color = (
-                    0, 255, 153) if monitoring_active else (255, 59, 48)
-                cv2.putText(frame, status_text, (10, frame.shape[0] - 10),
+                    0, 255, 153) if mon_active else (255, 59, 48)
+                cv2.putText(local_frame, status_text, (10, local_frame.shape[0] - 10),
                             cv2.FONT_HERSHEY_SIMPLEX, 0.8, status_color, 2)
 
-                _, buffer = cv2.imencode('.jpg', frame)
+                _, buffer = cv2.imencode('.jpg', local_frame)
                 frame_bytes = buffer.tobytes()
             else:
                 placeholder = create_placeholder_image(
@@ -355,9 +401,12 @@ def create_placeholder_image(message="No Camera Feed"):
 def index():
     logger.info("Rendering index page")
     try:
+        with _state_lock:
+            mon_active = monitoring_active
+            alerts_copy = list(alerts_history)
         return render_template('index.html',
-                               monitoring=monitoring_active,
-                               alerts=alerts_history,
+                               monitoring=mon_active,
+                               alerts=alerts_copy,
                                EMAIL_RECEIVER=config.EMAIL_RECEIVER,
                                OWNER_PHONE=config.OWNER_PHONE)
     except Exception as e:
@@ -375,8 +424,12 @@ def video_feed():
 def start_monitoring():
     global monitoring_active, monitoring_thread
 
-    if not monitoring_active:
-        monitoring_active = True
+    with _state_lock:
+        current_monitoring = monitoring_active
+
+    if not current_monitoring:
+        with _state_lock:
+            monitoring_active = True
         monitoring_thread = threading.Thread(target=monitor_windows_logins)
         monitoring_thread.daemon = True
         monitoring_thread.start()
@@ -387,16 +440,21 @@ def start_monitoring():
 @app.route('/stop_monitoring', methods=['POST'])
 def stop_monitoring():
     global monitoring_active
-    if monitoring_active:
-        monitoring_active = False
+    with _state_lock:
+        current_monitoring = monitoring_active
+    if current_monitoring:
+        with _state_lock:
+            monitoring_active = False
         return jsonify({"status": "success", "message": "Monitoring stopped"})
     return jsonify({"status": "info", "message": "Monitoring already inactive"})
 
 
 @app.route('/get_alerts')
 def get_alerts():
-    logger.debug(f"Alerts requested, returning {len(alerts_history)} items")
-    return jsonify(alerts_history)
+    with _state_lock:
+        alerts_copy = list(alerts_history)
+    logger.debug(f"Alerts requested, returning {len(alerts_copy)} items")
+    return jsonify(alerts_copy)
 
 
 @app.route('/test_capture', methods=['POST'])
@@ -416,7 +474,8 @@ def test_capture():
             "message": "Test capture",
             "is_test": True
         }
-        alerts_history.insert(0, alert_record)
+        with _state_lock:
+            alerts_history.appendleft(alert_record)
         logger.info(f"Test capture successful: {image_path}")
         return jsonify({"status": "success", "image_path": image_path})
     else:
@@ -429,20 +488,23 @@ def toggle_stream():
     global stream_active, stream_thread, camera
 
     enable = request.get_json().get('enable', False)
-    if enable and not stream_active:
-        stream_active = True
+    with _state_lock:
+        current_active = stream_active
+
+    if enable and not current_active:
+        with _state_lock:
+            stream_active = True
         stream_thread = threading.Thread(target=capture_frames_for_streaming)
         stream_thread.daemon = True
         stream_thread.start()
         return jsonify({"status": "success", "message": "Stream started"})
-    elif not enable and stream_active:
-        stream_active = False
-        time.sleep(0.5)
-        if camera is not None:
-            camera.release()
-            camera = None
+    elif not enable and current_active:
+        with _state_lock:
+            stream_active = False
+        if stream_thread is not None:
+            stream_thread.join(timeout=2.0)
         return jsonify({"status": "success", "message": "Stream stopped"})
-    return jsonify({"status": "info", "message": f"Stream already {'active' if stream_active else 'inactive'}"})
+    return jsonify({"status": "info", "message": f"Stream already {'active' if current_active else 'inactive'}"})
 
 
 @app.route('/wrong_password', methods=['POST'])
@@ -457,15 +519,19 @@ def wrong_password_trigger():
 @app.route('/system_status')
 def system_status():
     logger.debug("System status requested")
+    with _state_lock:
+        mon_active = monitoring_active
+        str_active = stream_active
+        alert_count = len(alerts_history)
     return jsonify({
-        "monitoring_active": monitoring_active,
-        "stream_active": stream_active,
+        "monitoring_active": mon_active,
+        "stream_active": str_active,
         "wmi_available": wmi_available,
         "email_alerts_enabled": config.ENABLE_EMAIL_ALERTS,
         "sms_alerts_enabled": config.ENABLE_SMS_ALERTS and twilio_available,
         "email_configured": bool(config.EMAIL_SENDER and config.EMAIL_PASSWORD and config.EMAIL_RECEIVER),
         "sms_configured": bool(config.TWILIO_SID and config.TWILIO_AUTH_TOKEN and config.TWILIO_PHONE and config.OWNER_PHONE),
-        "alert_count": len(alerts_history)
+        "alert_count": alert_count
     })
 
 # Cleanup function to ensure resources are released
@@ -474,12 +540,13 @@ def system_status():
 def cleanup():
     global camera, stream_active, monitoring_active
     logger.info("Performing cleanup")
-    stream_active = False
-    monitoring_active = False
-    if camera is not None:
-        logger.info("Releasing camera during cleanup")
-        camera.release()
-        camera = None
+    with _state_lock:
+        stream_active = False
+        monitoring_active = False
+        if camera is not None:
+            logger.info("Releasing camera during cleanup")
+            camera.release()
+            camera = None
 
 
 if __name__ == "__main__":
