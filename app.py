@@ -35,7 +35,7 @@ except ImportError:
         ENABLE_SMS_ALERTS = False
         FLASK_HOST = '127.0.0.1'
         FLASK_PORT = 5000
-        FLASK_DEBUG = True
+        FLASK_DEBUG = False
 
 # Import optional dependencies
 wmi_available = False
