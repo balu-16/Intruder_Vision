@@ -219,60 +219,89 @@ document.addEventListener('DOMContentLoaded', function () {
     function refreshAlerts() {
         fetch('/get_alerts')
             .then(response => response.json())
-            .then(alerts => {
-                console.log("Received alerts:", alerts);  // Debug log
+            .then(data => {
+                const alerts = data.alerts || [];
+                console.log("Received alerts:", alerts);
+
+                const alertsContainer = document.getElementById('alerts-container');
+                if (!alertsContainer) {
+                    console.error("Could not find alerts-container element");
+                    return;
+                }
+                // Clear existing content safely
+                alertsContainer.textContent = '';
 
                 if (alerts && alerts.length > 0) {
-                    let html = '';
                     alerts.forEach(alert => {
                         const isTest = alert.is_test || false;
                         const isSimulated = alert.is_simulated || false;
                         const cardClass = isTest ? 'test-alert' : isSimulated ? 'simulated-alert' : '';
                         const message = alert.message || (isTest ? 'Test Capture' : 'Intruder Detected!');
 
-                        html += `
-                        <div class="alert-card ${cardClass}">
-                            <div class="alert-info">
-                                <h3>${message}</h3>
-                                <p><i class="fas fa-clock"></i> ${alert.timestamp}</p>
-                                <p>
-                                    <i class="fas fa-envelope"></i> Email: 
-                                    <span class="${alert.email_sent ? 'success' : 'not-sent'}">
-                                        ${alert.email_sent ? 'Sent' : 'Not Sent'}
-                                    </span>
-                                </p>
-                                <p>
-                                    <i class="fas fa-sms"></i> SMS: 
-                                    <span class="${alert.sms_sid ? 'success' : 'not-sent'}">
-                                        ${alert.sms_sid ? 'Sent' : 'Not Sent'}
-                                    </span>
-                                </p>
-                            </div>
-                            <div class="alert-image">
-                                <img src="/static/${alert.image_path.replace('static/', '')}" alt="Intruder Image" 
-                                     onerror="this.src='/static/images/no-image.png';this.onerror='';">
-                            </div>
-                        </div>
-                    `;
-                    });
+                        const card = document.createElement('div');
+                        card.className = 'alert-card ' + cardClass;
 
-                    const alertsContainer = document.getElementById('alerts-container');
-                    if (alertsContainer) {
-                        alertsContainer.innerHTML = html;
-                        console.log("Updated alerts container");  // Debug log
-                    } else {
-                        console.error("Could not find alerts-container element");  // Debug log
-                    }
+                        const info = document.createElement('div');
+                        info.className = 'alert-info';
+
+                        const h3 = document.createElement('h3');
+                        h3.textContent = message;
+
+                        const timeP = document.createElement('p');
+                        const clockIcon = document.createElement('i');
+                        clockIcon.className = 'fas fa-clock';
+                        timeP.appendChild(clockIcon);
+                        timeP.appendChild(document.createTextNode(' ' + (alert.timestamp || '')));
+
+                        const emailP = document.createElement('p');
+                        const emailIcon = document.createElement('i');
+                        emailIcon.className = 'fas fa-envelope';
+                        emailP.appendChild(emailIcon);
+                        emailP.appendChild(document.createTextNode(' Email: '));
+                        const emailSpan = document.createElement('span');
+                        emailSpan.className = alert.email_sent ? 'success' : 'not-sent';
+                        emailSpan.textContent = alert.email_sent ? 'Sent' : 'Not Sent';
+                        emailP.appendChild(emailSpan);
+
+                        const smsP = document.createElement('p');
+                        const smsIcon = document.createElement('i');
+                        smsIcon.className = 'fas fa-sms';
+                        smsP.appendChild(smsIcon);
+                        smsP.appendChild(document.createTextNode(' SMS: '));
+                        const smsSpan = document.createElement('span');
+                        smsSpan.className = alert.sms_sid ? 'success' : 'not-sent';
+                        smsSpan.textContent = alert.sms_sid ? 'Sent' : 'Not Sent';
+                        smsP.appendChild(smsSpan);
+
+                        info.appendChild(h3);
+                        info.appendChild(timeP);
+                        info.appendChild(emailP);
+                        info.appendChild(smsP);
+
+                        const imageDiv = document.createElement('div');
+                        imageDiv.className = 'alert-image';
+                        const img = document.createElement('img');
+                        const imgSrc = '/static/' + String(alert.image_path || '').replace(/^static\//, '');
+                        img.setAttribute('src', imgSrc);
+                        img.setAttribute('alt', 'Intruder Image');
+                        img.onerror = function() { this.src = '/static/images/no-image.png'; this.onerror = null; };
+                        imageDiv.appendChild(img);
+
+                        card.appendChild(info);
+                        card.appendChild(imageDiv);
+                        alertsContainer.appendChild(card);
+                    });
+                    console.log("Updated alerts container");
                 } else {
-                    const alertsContainer = document.getElementById('alerts-container');
-                    if (alertsContainer) {
-                        alertsContainer.innerHTML = `
-                        <div class="no-alerts">
-                            <i class="fas fa-check-circle"></i>
-                            <p>No alerts detected yet. Your system is secure.</p>
-                        </div>
-                    `;
-                    }
+                    const noAlerts = document.createElement('div');
+                    noAlerts.className = 'no-alerts';
+                    const checkIcon = document.createElement('i');
+                    checkIcon.className = 'fas fa-check-circle';
+                    const p = document.createElement('p');
+                    p.textContent = 'No alerts detected yet. Your system is secure.';
+                    noAlerts.appendChild(checkIcon);
+                    noAlerts.appendChild(p);
+                    alertsContainer.appendChild(noAlerts);
                 }
             })
             .catch(error => {

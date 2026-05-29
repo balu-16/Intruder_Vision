@@ -1,116 +1,132 @@
-# 🚨 Intruder Detection System  
+# Intruder Detection System
 
-An AI-powered security system that detects unauthorized access attempts on your Windows system. If a wrong password is entered, it captures the intruder’s photo 📷 and sends alerts via email ✉️ and SMS 📲 in real-time.  
-
----
-
-## ✨ Features  
-- 🔍 **Monitors Failed Login Attempts** (Event ID 4625)  
-- 📷 **Captures Intruder’s Image** using the webcam  
-- 📩 **Sends Email Alerts** with the intruder's photo  
-- 📲 **Sends SMS Notifications** via Twilio  
-- ⚡ **Fast Response** – triggers immediately upon detection  
+An AI-powered security system that detects unauthorized access attempts on your Windows system. If a wrong password is entered, it captures the intruder's photo and sends alerts via email and SMS in real-time.
 
 ---
 
-## 📋 Pre-requisites  
-Before running this project, ensure you have the following installed:  
-- Python 3.x  
-- A webcam (for capturing images)  
-- Twilio account for sending SMS alerts  
-- Gmail account for email notifications  
+## Features
+
+- Monitors failed login attempts (Windows Event ID 4625)
+- Captures intruder images using the webcam
+- Sends email alerts with the intruder's photo
+- Sends SMS notifications via Twilio
+- Real-time video streaming via web dashboard
 
 ---
 
-## 📂 Code Structure  
+## Requirements
 
-📂 Intruder-Detection-System 
-- 📜 main.py # Main script to monitor login attempts 
-- 📜 README.md # Documentation 
-- 📜 requirements.txt # Required dependencies 
-- 📂 assets # Stores captured images
-
-yaml
-Copy
-Edit
+- Python 3.9+
+- A webcam (for capturing images)
+- **Windows** for WMI-based login monitoring (runs on Linux without WMI detection)
+- Gmail account for email notifications
+- Twilio account for SMS alerts (optional)
 
 ---
 
-## 📦 Dependencies  
-Install the required Python packages:  
-```bash
-pip install opencv-python smtplib wmi twilio
+## Project Structure
+
 ```
-Or install from requirements.txt:
+Intruder_Vision/
+├── app.py              # Flask application and monitoring logic
+├── config.py           # Configuration (loads from .env)
+├── .env.example        # Example environment variables
+├── .gitignore
+├── requirements.txt
+├── static/
+│   ├── css/
+│   ├── js/
+│   └── images/         # Captured images stored here
+└── templates/
+    └── index.html
+```
+
+---
+
+## Installation
+
+1. Clone the repository:
+
+```bash
+git clone https://github.com/balu-16/Intruder_Vision.git
+cd Intruder_Vision
+```
+
+2. Install dependencies:
 
 ```bash
 pip install -r requirements.txt
 ```
-🚀 Installation
-1️⃣ Clone the repository:
+
+3. Create a `.env` file from the example:
 
 ```bash
-git clone https://github.com/yourusername/intruder-detection.git
+cp .env.example .env
 ```
-cd intruder-detection
-2️⃣ Install dependencies:
 
-```bash
-pip install -r requirements.txt
-```
-3️⃣ Configure your credentials in the script (EMAIL_SENDER, TWILIO_SID, etc.).
-
-🏃 Usage
-Run the script to start monitoring failed login attempts:
-
-```bash
-python intruder_system.py
-```
-## 🔮 Future Improvements  
-- ✅ Implement facial recognition to differentiate between the owner and an intruder.  
-- 🚀 Optimize image capturing for better quality and speed.  
-- 🔄 Store intruder logs for future analysis.  
-- 🌐 Web-based dashboard for remote monitoring.  
+4. Edit `.env` with your credentials (see `.env.example` for all options).
 
 ---
 
-## 🤝 Contributing  
-Want to contribute? Follow these steps:  
+## Configuration
 
-1️⃣ **Fork the repository** 🍴  
-2️⃣ **Create a new branch** (`feature-branch`) 🌿  
-```bash
- git checkout -b feature-branch
-```
-3️⃣ Make your changes and commit them ✅
+All configuration is via environment variables (or a `.env` file). See `.env.example` for the full list:
 
-```bash
-git commit -m "Added new feature"
-```
-4️⃣ Push to the branch 🚀
-
-```bash
-git push origin feature-branch
-```
-5️⃣ Open a pull request 🔃
-
-Let me know if you need any modifications! 🚀
+| Variable | Default | Description |
+|---|---|---|
+| `EMAIL_SENDER` | *(required for email)* | Gmail address |
+| `EMAIL_PASSWORD` | *(required for email)* | Gmail app password |
+| `EMAIL_RECEIVER` | *(required for email)* | Alert recipient address |
+| `TWILIO_SID` | *(required for SMS)* | Twilio account SID |
+| `TWILIO_AUTH_TOKEN` | *(required for SMS)* | Twilio auth token |
+| `TWILIO_PHONE` | *(required for SMS)* | Twilio phone number |
+| `OWNER_PHONE` | *(required for SMS)* | Your phone number |
+| `ENABLE_WMI_MONITORING` | `true` | Enable Windows login monitoring |
+| `ENABLE_EMAIL_ALERTS` | `true` | Enable email alerts |
+| `ENABLE_SMS_ALERTS` | `true` | Enable SMS alerts |
+| `FLASK_HOST` | `127.0.0.1` | Server bind address |
+| `FLASK_PORT` | `5000` | Server port |
+| `FLASK_DEBUG` | `false` | Enable Flask debug mode |
 
 ---
 
-## ⚠️ Disclaimer  
+## Usage
 
-This project is intended **for educational and security purposes only**. 🛑 Unauthorized use, monitoring, or surveillance of individuals **without consent** may be illegal in certain jurisdictions. 
+### Development
 
-By using this software, you agree that you are responsible for ensuring compliance with all applicable laws and regulations. 🚨 The authors of this project **are not liable** for any misuse or legal consequences resulting from its deployment.  
+```bash
+python app.py
+```
 
-Use it ethically and responsibly. ✅  
+### Production (with Gunicorn)
+
+```bash
+gunicorn --bind 0.0.0.0:5000 --threads 4 app:app
+```
+
+Access the web interface at `http://127.0.0.1:5000`.
 
 ---
 
-## License
-This project is licensed as **proprietary and confidential**.  
-**You may not reuse, modify, or redistribute any part of this code.**
+## Platform Notes
 
+- **Windows**: Full functionality including WMI-based login monitoring (Event ID 4625).
+- **Linux/macOS**: Web dashboard, camera streaming, email/SMS alerts all work. WMI monitoring is automatically skipped.
 
+---
 
+## Optional Dependencies
+
+For SMS alerts and Windows monitoring, install the optional packages:
+
+```bash
+pip install twilio>=9.0.0    # SMS alerts
+pip install WMI>=1.5.1       # Windows login monitoring
+pip install pywin32>=306      # Required by WMI
+```
+
+---
+
+## Disclaimer
+
+This project is intended for educational and security purposes only. Unauthorized use, monitoring, or surveillance of individuals without consent may be illegal in your jurisdiction. The authors are not liable for any misuse.

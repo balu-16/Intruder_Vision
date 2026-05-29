@@ -1,0 +1,5 @@
+.env
+__pycache__/
+*.pyc
+static/images/capture_*.jpg
+*.egg-info/
